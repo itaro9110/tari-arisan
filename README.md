@@ -17,6 +17,8 @@ the rotation, so no treasurer can run off with the pot.
 > round closed, 0.2 tTARI pot paid to member 1, members 3–4 in arrears).
 > Full proof: [`PROOF.md`](PROOF.md). No mainnet deployment yet.
 
+> **Live demo:** https://itaro9110.github.io/tari-arisan/
+
 ## Frontend (`web/`)
 
 A single static site (plain HTML/CSS/JS, no build step, hostable on
