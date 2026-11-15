@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tari Arisan — Arisan on-chain di Tari Ootle</title>
+<meta name="description" content="Arisan keliling yang ditegakkan smart contract Tari Ootle: iuran tetap, giliran tetap, bendahara tidak bisa kabur.">
+<link rel="stylesheet" href="style.css">
+<!-- Tari provider: supplies window.tari when embedded in Tari Universe;
+     stands aside when the Sapient extension owns window.tari already. -->
+<script src="https://universe.tari.mw/tari-connector.js"></script>
+</head>
+<body>
+<header class="hero">
+  <p class="eyebrow">Tari November Build Contest &middot; MVP &middot; Ootle</p>
+  <h1>Tari Arisan</h1>
+  <p class="tagline">Arisan keliling, ditegakkan oleh smart contract — bukan oleh bendahara.</p>
+  <p class="sim-badge" id="mode-badge">MODE SIMULASI — tidak ada uang sungguhan di sini</p>
+</header>
+
+<main>
+  <section class="card explainer">
+    <h2>Apa itu arisan?</h2>
+    <p><strong>Arisan</strong> adalah tabungan keliling yang dipakai jutaan orang di Indonesia:
+    sekelompok orang menyetor jumlah yang sama setiap ronde, dan tiap ronde satu anggota
+    membawa pulang seluruh pot — sampai semua kebagian. Tanpa bunga, tanpa bank, tanpa
+    potongan platform. Masalahnya cuma satu: bendahara bisa kabur membawa pot.</p>
+    <p>Tari Arisan memindahkan perjanjian sosial itu ke on-chain. Smart contract
+    (<code>TariArisan</code>) memegang uangnya dan menegakkan gilirannya — jadi tidak ada
+    yang bisa lari dengan pot, dan tidak ada yang bisa loncat antrean.</p>
+    <p class="en"><em>Rotating savings, enforced by code:</em> a fixed group chips in a fixed
+    amount every round; each round one member takes the whole pot. The contract holds the
+    money and enforces the rotation — no treasurer can run off with it.</p>
+    <h3>Aturannya (sama persis dengan kontrak on-chain)</h3>
+    <ol class="rules">
+      <li><strong>Bayar pas.</strong> Iuran harus tepat sejumlah iuran — kurang atau lebih ditolak.</li>
+      <li><strong>Nunggak = menunggak.</strong> Yang tidak bayar di satu ronde masuk daftar tunggakan.</li>
+      <li><strong>Giliran hangus kalau nunggak.</strong> Kalau giliranmu tiba tapi kamu masih menunggak,
+        potnya tidak cair — pot menggelinding ke ronde berikut (makin besar). Lunasi tunggakanmu
+        dengan <em>pay arrears</em> sebelum giliranmu berikutnya tiba.</li>
+      <li><strong>Siapa pun boleh menutup ronde</strong> begitu tenggat epoch-nya tiba — lingkaran tidak
+        pernah macet karena satu orang offline.</li>
+      <li><strong>Tidak ada yang bisa merampoknya.</strong> Tidak ada fungsi owner/admin; kontrak tidak
+        bisa di-upgrade.</li>
+    </ol>
+  </section>
+
+  <nav class="tabs" aria-label="Mode">
+    <button id="tab-sim" class="tab active" type="button">Simulasi (tanpa wallet)</button>
+    <button id="tab-live" class="tab" type="button">Live — Esmeralda testnet</button>
+  </nav>
+
+  <!-- ======================= SIMULATION ======================= -->
+  <section id="panel-sim" class="card">
+    <h2>Simulasi — lingkaran demo 4 anggota</h2>
+    <p class="muted">Simulasi ini menjalankan aturan yang <em>sama persis</em> dengan template Rust
+    (<code>src/lib.rs</code>) — termasuk semua penolakannya. Satu ronde = 2 epoch; satu epoch
+    berjalan tiap 15 detik (atau majukan manual). Seluruh lingkaran selesai dalam ~2 menit.</p>
+
+    <div class="status-grid">
+      <div class="stat"><span class="stat-label">Ronde</span><span class="stat-value" id="stat-round">1 / 4</span></div>
+      <div class="stat"><span class="stat-label">Epoch sekarang</span><span class="stat-value" id="stat-epoch">0</span></div>
+      <div class="stat"><span class="stat-label">Tenggat ronde</span><span class="stat-value" id="stat-deadline">epoch 2</span></div>
+      <div class="stat"><span class="stat-label">Giliran ronde ini</span><span class="stat-value" id="stat-recipient">Ayu</span></div>
+      <div class="stat"><span class="stat-label">Isi pot (vault)</span><span class="stat-value" id="stat-vault">0 TARI</span></div>
+      <div class="stat"><span class="stat-label">Status</span><span class="stat-value" id="stat-status">Berjalan</span></div>
+    </div>
+
+    <div id="arrears-banner" class="banner hidden"></div>
+
+    <h3>Anggota</h3>
+    <div id="members-table"></div>
+
+    <h3>Ikut bermain</h3>
+    <div class="controls">
+      <label>Bertindak sebagai
+        <select id="act-as">
+          <option value="ayu">Ayu</option>
+          <option value="budi">Budi</option>
+          <option value="citra">Citra</option>
+          <option value="dewi">Dewi</option>
+          <option value="rudi-outsider">Rudi — bukan anggota</option>
+        </select>
+      </label>
+      <label>Jumlah dibayar (&micro;T)
+        <input id="amount-input" type="number" value="100000" min="0" step="1">
+      </label>
+      <span class="hint">Iuran tetap: 100.000 &micro;T = 0,1 TARI</span>
+    </div>
+    <div class="btn-row">
+      <button id="btn-contribute" type="button">Bayar iuran</button>
+      <button id="btn-close" type="button">Tutup ronde</button>
+      <button id="btn-pay-arrears" type="button">Lunasi tunggakan</button>
+    </div>
+    <p id="action-message" class="action-message" aria-live="polite"></p>
+
+    <h3>Waktu (epoch)</h3>
+    <div class="btn-row">
+      <button id="btn-advance-epoch" type="button">Maju 1 epoch</button>
+      <button id="btn-skip-deadline" type="button">Lompat ke tenggat ronde</button>
+      <button id="btn-auto-tick" type="button">Jalankan waktu otomatis (15 dtk/epoch)</button>
+    </div>
+
+    <h3>Demo cepat</h3>
+    <div class="btn-row">
+      <button id="btn-autoplay" type="button">&#9654; Mainkan satu lingkaran penuh</button>
+      <button id="btn-demo-missed" type="button">Demo: ada anggota yang tidak bayar</button>
+    </div>
+    <h3>Coba langgar aturannya</h3>
+    <p class="muted">Kontrak yang bagus bukan cuma yang menerima yang benar — tapi yang menolak yang salah.
+    Tiga tombol ini sengaja menjalankan aksi yang harus ditolak:</p>
+    <div class="btn-row">
+      <button id="btn-try-wrong-amount" type="button">Bayar kurang (99.999 &micro;T)</button>
+      <button id="btn-try-non-member" type="button">Bayar sebagai bukan anggota</button>
+      <button id="btn-try-early-close" type="button">Tutup ronde sebelum tenggat</button>
+    </div>
+
+    <h3>Riwayat</h3>
+    <ol id="event-log" class="event-log"></ol>
+    <div class="btn-row">
+      <button id="btn-reset" type="button">Mulai lingkaran baru</button>
+    </div>
+  </section>
+
+  <!-- ======================= LIVE ======================= -->
+  <section id="panel-live" class="card hidden">
+    <h2>Live — Esmeralda testnet (Sapient)</h2>
+    <p class="muted">Mode ini berbicara dengan template <em>asli</em> yang sudah dipublish — bukan simulasi.
+    Semua aksi di sini meminta tanda tangan wallet dan memakai tTARI testnet (tidak bernilai).</p>
+
+    <h3>Status konfigurasi</h3>
+    <div id="live-config" class="config-box"></div>
+
+    <h3>Wallet</h3>
+    <div class="btn-row">
+      <button id="btn-connect" type="button">Hubungkan Sapient</button>
+      <button id="btn-disconnect" type="button">Putuskan</button>
+    </div>
+    <p id="live-wallet-status" class="muted">Wallet belum terhubung.</p>
+
+    <h3>Lingkaran live</h3>
+    <div class="btn-row">
+      <button id="btn-load-circle" type="button">Muat lingkaran live</button>
+    </div>
+    <div id="live-circle-state" class="config-box">Belum ada lingkaran yang dimuat.</div>
+
+    <h3>Aksi live</h3>
+    <p class="muted">Aksi tulis (buat lingkaran, bayar, tutup ronde, lunasi tunggakan) aktif setelah
+    template dipublish dan pengkodean instruksinya terverifikasi terhadap wallet sungguhan
+    (Fase 3). Sampai saat itu tombol di bawah dinonaktifkan — halaman ini tidak pernah
+    memalsukan transaksi live.</p>
+    <div class="btn-row">
+      <button id="btn-live-create" type="button" disabled>Buat lingkaran live</button>
+      <button id="btn-live-contribute" type="button" disabled>Bayar iuran (live)</button>
+      <button id="btn-live-close" type="button" disabled>Tutup ronde (live)</button>
+      <button id="btn-live-pay-arrears" type="button" disabled>Lunasi tunggakan (live)</button>
+    </div>
+
+    <h3>Yang masih harus dikerjakan (Fase 3)</h3>
+    <ol class="rules">
+      <li>Publish template ke Esmeralda, isi <code>TEMPLATE_ADDRESS</code> di <code>app.js</code>.</li>
+      <li>Buat satu lingkaran live, isi <code>COMPONENT_ADDRESS</code> di <code>app.js</code>.</li>
+      <li>Isi <code>INDEXER_URL</code> dengan URL indexer publik Esmeralda.</li>
+      <li>Verifikasi pengkodean instruksi transaksi terhadap Sapient sungguhan, lalu set
+        <code>LIVE_WRITES_VERIFIED = true</code> di <code>app.js</code>.</li>
+    </ol>
+  </section>
+</main>
+
+<footer>
+  <p>Tari Arisan — <a href="https://github.com/itaro9110/tari-arisan">kode (segera)</a> &middot;
+  <a href="https://community.tari.com/t/november-build-contest-thread-mvp/520">kontes Tari November</a> &middot;
+  <a href="https://ootle.tari.com/">docs Ootle</a> &middot; MIT</p>
+  <p class="muted">Simulasi di halaman ini meniru template <code>TariArisan</code> (Rust/WASM). Mode live memakai
+  testnet Esmeralda — jangan kirim TARI mainnet ke alamat demo mana pun.</p>
+</footer>
+
+<script src="arisan-sim.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
