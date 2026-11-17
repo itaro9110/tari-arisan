@@ -297,7 +297,8 @@ fn arrears_recorded_and_turn_deferred() {
     close_round_ok(&mut test, circle);
 
     // Member 0 received nothing this round (the pot stays in the vault
-    // and rolls over — proven by the 800_000 payout in the rollover test).
+    // and rolls over — proven by the 800_000 payout in
+    // arrears_payoff_restores_turn).
     assert_eq!(
         account_balance(&mut test, &ctx.members[0]),
         Amount::new(INITIAL_BALANCE as u128)
@@ -560,4 +561,113 @@ fn new_validates_inputs() {
         vec![test.owner_proof()],
     );
     assert_reject_reason(reason, "Round length must be between 1 and 1008 epochs");
+}
+
+#[test]
+fn new_validates_more_inputs() {
+    let mut test = TemplateTest::my_crate();
+    let template = test.get_template_address(TEMPLATE_NAME);
+
+    // 65 members: too many.
+    let mut pubkeys = Vec::new();
+    let mut accounts = Vec::new();
+    for _ in 0..65 {
+        let (a, _, _, pk) = test.create_funded_account_with_keypair();
+        pubkeys.push(pk.to_byte_type());
+        accounts.push(a);
+    }
+    let reason = test.execute_expect_failure(
+        test.transaction()
+            .call_function(template, "new", args![
+                pubkeys,
+                accounts,
+                Amount::new(CONTRIBUTION as u128),
+                4u32,
+                2u64
+            ])
+            .build_and_seal(test.secret_key()),
+        vec![test.owner_proof()],
+    );
+    assert_reject_reason(reason, "Arisan supports at most 64 members");
+
+    let (a1, _, _, pk1) = test.create_funded_account_with_keypair();
+    let (a2, _, _, pk2) = test.create_funded_account_with_keypair();
+    let p1 = pk1.to_byte_type();
+    let p2 = pk2.to_byte_type();
+
+    // Round length 1009: too long.
+    let reason = test.execute_expect_failure(
+        test.transaction()
+            .call_function(template, "new", args![
+                vec![p1, p2],
+                vec![a1, a2],
+                Amount::new(CONTRIBUTION as u128),
+                4u32,
+                1009u64
+            ])
+            .build_and_seal(test.secret_key()),
+        vec![test.owner_proof()],
+    );
+    assert_reject_reason(reason, "Round length must be between 1 and 1008 epochs");
+
+    // Mismatched member vectors.
+    let reason = test.execute_expect_failure(
+        test.transaction()
+            .call_function(template, "new", args![
+                vec![p1, p2],
+                vec![a1],
+                Amount::new(CONTRIBUTION as u128),
+                4u32,
+                2u64
+            ])
+            .build_and_seal(test.secret_key()),
+        vec![test.owner_proof()],
+    );
+    assert_reject_reason(reason, "Member pubkeys and accounts must have the same length");
+}
+
+#[test]
+fn pay_arrears_by_non_member_rejected() {
+    let mut test = TemplateTest::my_crate();
+    let ctx = setup_circle(&mut test, 4, 4, 2);
+    let circle = ctx.circle;
+    // Round 0: everyone except member 0 pays, so member 0 falls into arrears.
+    for member in &ctx.members[1..] {
+        contribute_ok(&mut test, circle, member, 0, CONTRIBUTION);
+    }
+    set_epoch(&mut test, 2);
+    close_round_ok(&mut test, circle);
+    // An outsider tries to pay the arrears.
+    let (outsider_account, outsider_proof, outsider_secret, _) =
+        test.create_funded_account_with_keypair();
+    let reason = test.execute_expect_failure(
+        test.transaction()
+            .call_method(outsider_account, "withdraw", args![TARI_TOKEN, CONTRIBUTION])
+            .put_last_instruction_output_on_workspace("payment")
+            .call_method(circle, "pay_arrears", args![Workspace("payment")])
+            .build_and_seal(&outsider_secret),
+        vec![outsider_proof],
+    );
+    assert_reject_reason(reason, "Only a circle member can pay arrears");
+}
+
+#[test]
+fn pay_arrears_after_finish_rejected() {
+    let mut test = TemplateTest::my_crate();
+    let ctx = setup_circle(&mut test, 2, 1, 1);
+    let circle = ctx.circle;
+    // Round 0: member 1 pays, member 0 (recipient) does not -> arrears,
+    // then closing finishes the 1-round circle.
+    contribute_ok(&mut test, circle, &ctx.members[1], 0, CONTRIBUTION);
+    set_epoch(&mut test, 1);
+    close_round_ok(&mut test, circle);
+    let reason = test.execute_expect_failure(
+        test.transaction()
+            .call_method(ctx.members[0].account, "withdraw", args![TARI_TOKEN, CONTRIBUTION])
+            .put_last_instruction_output_on_workspace("payment")
+            .call_method(circle, "pay_arrears", args![Workspace("payment")])
+            .build_and_seal(&ctx.members[0].secret),
+        vec![ctx.members[0].proof.clone()],
+    );
+    assert_reject_reason(reason, "Circle is finished");
 }

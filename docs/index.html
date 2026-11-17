@@ -145,10 +145,15 @@
     <div id="live-circle-state" class="config-box">Belum ada lingkaran yang dimuat.</div>
 
     <h3>Aksi live</h3>
-    <p class="muted">Aksi tulis (buat lingkaran, bayar, tutup ronde, lunasi tunggakan) aktif setelah
-    template dipublish dan pengkodean instruksinya terverifikasi terhadap wallet sungguhan
-    (Fase 3). Sampai saat itu tombol di bawah dinonaktifkan — halaman ini tidak pernah
-    memalsukan transaksi live.</p>
+    <p class="muted">Mode live di halaman ini bisa <b>membaca</b> lingkaran sungguhan di
+    Esmeralda (tombol "Muat lingkaran live" di atas, lewat Sapient /
+    <code>window.tari</code>). <b>Penulisan live tidak dilakukan dari halaman ini</b>:
+    instruksi contribute / close_round / pay_arrears sudah dieksekusi dan
+    terverifikasi on-chain lewat walletd (<code>transactions.submit_manifest</code>,
+    lihat <a href="https://github.com/itaro9110/tari-arisan/blob/main/PROOF.md">PROOF.md</a>
+    dan <a href="https://github.com/itaro9110/tari-arisan/tree/main/manifests">manifests/</a>),
+    tapi tombol tulis di halaman ini belum dihubungkan ke dompet — halaman ini
+    tidak pernah memalsukan transaksi live.</p>
     <div class="btn-row">
       <button id="btn-live-create" type="button" disabled>Buat lingkaran live</button>
       <button id="btn-live-contribute" type="button" disabled>Bayar iuran (live)</button>
@@ -156,19 +161,19 @@
       <button id="btn-live-pay-arrears" type="button" disabled>Lunasi tunggakan (live)</button>
     </div>
 
-    <h3>Yang masih harus dikerjakan (Fase 3)</h3>
+    <h3>Status live — terverifikasi 2026-11-15</h3>
     <ol class="rules">
-      <li>Publish template ke Esmeralda, isi <code>TEMPLATE_ADDRESS</code> di <code>app.js</code>.</li>
-      <li>Buat satu lingkaran live, isi <code>COMPONENT_ADDRESS</code> di <code>app.js</code>.</li>
-      <li>Isi <code>INDEXER_URL</code> dengan URL indexer publik Esmeralda.</li>
-      <li>Verifikasi pengkodean instruksi transaksi terhadap Sapient sungguhan, lalu set
-        <code>LIVE_WRITES_VERIFIED = true</code> di <code>app.js</code>.</li>
+      <li>Template dipublish ke Esmeralda (<code>TEMPLATE_ADDRESS</code> di <code>app.js</code>).</li>
+      <li>Satu lingkaran live dibuat (<code>COMPONENT_ADDRESS</code> di <code>app.js</code>).</li>
+      <li><code>INDEXER_URL</code> menunjuk ke indexer publik Esmeralda.</li>
+      <li>Pengkodean instruksi transaksi terverifikasi on-chain lewat walletd
+        (contribute + close_round, lihat PROOF.md); <code>LIVE_WRITES_VERIFIED = true</code>.</li>
     </ol>
   </section>
 </main>
 
 <footer>
-  <p>Tari Arisan — <a href="https://github.com/itaro9110/tari-arisan">kode (segera)</a> &middot;
+  <p>Tari Arisan — <a href="https://github.com/itaro9110/tari-arisan">kode</a> &middot;
   <a href="https://community.tari.com/t/november-build-contest-thread-mvp/520">kontes Tari November</a> &middot;
   <a href="https://ootle.tari.com/">docs Ootle</a> &middot; MIT</p>
   <p class="muted">Simulasi di halaman ini meniru template <code>TariArisan</code> (Rust/WASM). Mode live memakai

@@ -6,10 +6,12 @@
 //  1. Simulation (default): ArisanSim (arisan-sim.js) runs the exact
 //     contract rules in-browser. No wallet, no network, no money.
 //  2. Live (Esmeralda): talks to the real published template through
-//     the Sapient / Tari Universe provider (`window.tari`). Gated by
-//     CONFIG below — until Phase 3 fills the template address in and
-//     verifies the instruction encoding, live writes stay disabled
-//     rather than faking a transaction.
+//     the Sapient / Tari Universe provider (`window.tari`). The template
+//     is published and the instruction encoding is verified on-chain via
+//     walletd manifests (see PROOF.md) — but the page itself only READS
+//     the live circle; its write buttons are not wired to a wallet yet,
+//     rather than faking a transaction. Live writes from this page are a
+//     v2 item (needs a Sapient test wallet to verify end-to-end).
 //
 // DOM usage is deliberately minimal (getElementById + innerHTML +
 // addEventListener only) so the UI can be smoke-tested in node with a
@@ -19,8 +21,8 @@
   "use strict";
 
   // ---------------------------------------------------------------
-  // CONFIG — the single place Phase 3 edits. Nothing else in this
-  // file needs to change when the template is published.
+  // CONFIG — the live deployment addresses (published 2026-11-15).
+  // Nothing else in this file needs to change for the live deployment.
   // ---------------------------------------------------------------
   var CONFIG = {
     NETWORK: "esmeralda", // "esmeralda" testnet | "mainnet"
@@ -354,42 +356,39 @@
   //    tari_signAndSubmitTransaction, tari_disconnect; errors 4001
   //    (user rejected), 4100 (not connected), 4200 (unsupported).
   //
-  // What IS verified (Phase 3, 2026-11-15, Esmeralda):
+  // What IS verified (2026-11-15, Esmeralda):
   //  - the exact JSON shape of the `instructions` argument to
   //    tari_signAndSubmitTransaction (CallMethod / withdraw / bucket
   //    references) was confirmed against the live walletd
   //    (`transactions.submit_manifest`, Tari manifest DSL) and by real
   //    on-chain executions — contribute + close_round on the live circle
-  //    (see PROOF.md). LIVE_WRITES_VERIFIED is therefore true, and
-  //    liveWrite() no longer refuses on encoding grounds — it still
-  //    requires a real wallet provider (window.tari) and never fakes a
-  //    live transaction.
+  //    (see PROOF.md). LIVE_WRITES_VERIFIED is therefore true for the
+  //    walletd path. The page itself does NOT submit transactions:
+  //    liveWrite() says so honestly, and the write buttons stay disabled
+  //    until a page-level write path is built and tested with a real
+  //    Sapient wallet (v2).
 
   var liveAccounts = [];
 
   function renderLiveConfig() {
     var lines = [
       "Network:        " + CONFIG.NETWORK,
-      "Template:       " + (CONFIG.TEMPLATE_ADDRESS || "(belum diset — isi setelah publish, Fase 3)"),
-      "Component:      " + (CONFIG.COMPONENT_ADDRESS || "(belum diset — isi setelah membuat lingkaran live)"),
-      "Indexer:        " + (CONFIG.INDEXER_URL || "(belum diset — URL indexer publik Esmeralda)"),
-      "Live writes:    " + (CONFIG.LIVE_WRITES_VERIFIED ? "TERVERIFIKASI" : "BELUM terverifikasi (Fase 3)"),
+      "Template:       " + (CONFIG.TEMPLATE_ADDRESS || "(belum diset)"),
+      "Component:      " + (CONFIG.COMPONENT_ADDRESS || "(belum diset)"),
+      "Indexer:        " + (CONFIG.INDEXER_URL || "(belum diset)"),
+      "Live writes:    " + (CONFIG.LIVE_WRITES_VERIFIED ? "TERVERIFIKASI (via walletd, lihat PROOF.md)" : "BELUM terverifikasi"),
       "Provider:       " + (typeof window !== "undefined" && window.tari ? "window.tari tersedia" : "window.tari TIDAK ditemukan"),
     ];
     el("live-config").textContent = lines.join("\n");
   }
 
   function liveWrite(action) {
-    // Guarded: refuses until Phase 3 has (a) a published template address
-    // and (b) a live-verified instruction encoding.
-    if (!CONFIG.TEMPLATE_ADDRESS) {
-      return "Live mode membutuhkan TEMPLATE_ADDRESS yang sudah dipublish (Fase 3).";
-    }
-    if (!CONFIG.LIVE_WRITES_VERIFIED) {
-      return "Penulisan live belum terverifikasi: pengkodean instruksi transaksi harus " +
-        "dikonfirmasi terhadap Sapient sungguhan dulu (Fase 3).";
-    }
-    return null; // unreachable until Phase 3 flips the flag — see note above
+    // No page-level write path exists yet: the write buttons in
+    // index.html are disabled and nothing calls this. Live writes were
+    // executed and verified via walletd manifests (see PROOF.md), not
+    // from this page. Returns an honest message instead of pretending.
+    return "Penulisan live dari halaman ini belum tersedia — jalankan " +
+      "manifest di manifests/ lewat walletd (lihat PROOF.md).";
   }
 
   function connectLive() {
@@ -432,7 +431,7 @@
   function loadLiveCircle() {
     var box = el("live-circle-state");
     if (!CONFIG.COMPONENT_ADDRESS) {
-      box.textContent = "Belum ada COMPONENT_ADDRESS di konfigurasi — buat lingkaran live dulu (Fase 3).";
+      box.textContent = "Belum ada COMPONENT_ADDRESS di konfigurasi — buat lingkaran live dulu.";
       return Promise.resolve();
     }
     if (typeof window === "undefined" || !window.tari || !window.tari.request) {

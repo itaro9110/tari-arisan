@@ -267,6 +267,40 @@ test("new_validates_inputs", function () {
   }, "Round length must be between 1 and 1008 epochs");
 });
 
+test("new_validates_more_inputs", function () {
+  var many = [];
+  for (var i = 0; i < 65; i++) {
+    many.push({ name: "M" + i, pubkey: "m" + i, account: "account-m" + i });
+  }
+  throws(function () {
+    new ArisanSim({ members: many, contribution: CONTRIBUTION, rounds: 4, roundLength: 2 });
+  }, "Arisan supports at most 64 members");
+  throws(function () {
+    new ArisanSim({ members: demoMembers(), contribution: CONTRIBUTION, rounds: 4, roundLength: 1009 });
+  }, "Round length must be between 1 and 1008 epochs");
+});
+
+test("pay_arrears_by_non_member_rejected", function () {
+  var s = setup();
+  ["budi", "citra", "dewi"].forEach(function (pk) {
+    s.contribute({ member: pk, round: 0, amount: CONTRIBUTION });
+  });
+  closeAtDeadline(s, 0);
+  throws(function () {
+    s.payArrears({ member: "rudi-outsider", amount: CONTRIBUTION });
+  }, "Only a circle member can pay arrears");
+});
+
+test("pay_arrears_after_finish_rejected", function () {
+  var s = setup(2, 1, 1);
+  s.contribute({ member: "budi", round: 0, amount: CONTRIBUTION });
+  s.advanceEpoch(1);
+  s.closeRound({});
+  throws(function () {
+    s.payArrears({ member: "ayu", amount: CONTRIBUTION });
+  }, "Circle is finished");
+});
+
 test("format_helpers", function () {
   eq(sim.formatTari(100000), "0.1 TARI", "0.1 TARI");
   eq(sim.formatTari(1000000000), "1,000 TARI", "1,000 TARI");

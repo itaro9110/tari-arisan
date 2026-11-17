@@ -12,7 +12,7 @@ the rotation, so no treasurer can run off with the pot.
 
 > **Status:** Phase 3 DONE — **LIVE on Esmeralda testnet, verified 2026-11-15.**
 > Template `template_f230b6fbe6409c10c8f3d9dbf47a722a0b7ab956d32ed5b57a1fd35e9e8399a5`
-> published; one ArisanCircle `component_fe42c4e6f21f2066cac7acdabb5fabcd9bd365af8aadd154ece22dd0d2f601e8`
+> published; one TariArisan circle `component_fe42c4e6f21f2066cac7acdabb5fabcd9bd365af8aadd154ece22dd0d2f601e8`
 > created; round 0 executed on-chain (2 members contributed 0.1 tTARI each,
 > round closed, 0.2 tTARI pot paid to member 1, members 3–4 in arrears).
 > Full proof: [`PROOF.md`](PROOF.md). No mainnet deployment yet.
@@ -38,11 +38,15 @@ GitHub Pages). Two modes:
 - **Live — Esmeralda testnet** — connects through the Sapient / Tari
   Universe provider (`window.tari`; methods verified from
   `universe.tari.mw/integration`). Reads a live circle via
-  `tari_getSubstate`. **Live writes are verified**: `web/app.js` `CONFIG`
-  now points at the live template/component and the public Esmeralda indexer
-  (`LIVE_WRITES_VERIFIED: true`) — the instruction encoding was confirmed by
-  real on-chain transactions (contribute + close_round, see [`PROOF.md`](PROOF.md)).
-  The page never fakes a live transaction.
+  `tari_getSubstate`. **Live writes are verified, but not from this page:**
+  `web/app.js` `CONFIG` points at the live template/component and the
+  public Esmeralda indexer (`LIVE_WRITES_VERIFIED: true`) — the instruction
+  encoding was confirmed by real on-chain transactions executed through
+  the walletd (`transactions.submit_manifest`, manifests in `manifests/`;
+  contribute + close_round, see [`PROOF.md`](PROOF.md)). The page's own
+  write buttons are intentionally not wired to a wallet yet (a v2 item —
+  it needs a Sapient test wallet to verify end-to-end). The page never
+  fakes a live transaction.
 
 Run it locally:
 
@@ -56,7 +60,7 @@ are both tested in node against a stub DOM):
 
 ```sh
 cd web
-node test-sim.js   # 17 tests, mirrors tests/test.rs case-for-case
+node test-sim.js   # 20 tests, mirrors tests/test.rs case-for-case
 node test-ui.js    # 11 UI smoke tests (handlers, demos, live gating)
 ```
 
@@ -131,14 +135,18 @@ cargo build-wasm
 ## Project layout
 
 - `src/lib.rs` — the `TariArisan` template.
-- `tests/test.rs` — 16 engine tests: full-circle happy path, every
+- `tests/test.rs` — 19 engine tests: full-circle happy path, every
   rejection (wrong amount, non-member, wrong round, double pay, early
-  close, arrears rules), empty-vault close, anyone-can-close, finished
-  circle, and constructor validation.
+  close, arrears rules, pay_arrears by non-member / after finish),
+  empty-vault close, anyone-can-close, finished circle, and constructor
+  validation (incl. >64 members, round length 1009, mismatched vectors).
 - `web/` — static frontend: `index.html`, `style.css`,
   `arisan-sim.js` (pure simulation engine, no DOM), `app.js` (UI wiring
-  + live mode), `test-sim.js` (17 node tests mirroring `tests/test.rs`),
+  + live mode), `test-sim.js` (20 node tests mirroring `tests/test.rs`),
   `test-ui.js` (11 node UI smoke tests).
+- `manifests/` — the walletd manifests that reproduce the live on-chain
+  run (`create_circle_live.tm`, `contribute.tm`, `close_round.tm`,
+  `info.tm`); see [`PROOF.md`](PROOF.md) for the verification steps.
 - `LICENSE` — MIT.
 
 ## Known limitations (v1)
@@ -148,6 +156,20 @@ cargo build-wasm
 - Paid history for past rounds is kept in state (never pruned).
 - Round length is fixed at creation; members cannot be added or removed
   after creation.
+
+## Roadmap (v2 — recognised, not yet built)
+
+- **Optional deposit bond:** a member posts a small deposit at join time;
+  when they miss a round, the deposit covers the recipient's pot (so the
+  recipient always gets a full pot), and good members get their deposit
+  back at the end. Not in v1: it changes the template, so it ships as a
+  new template version, not an edit to the published one.
+- **`info()` exposes arrears + paid state** per member, so indexers and
+  the frontend can show who owes what without replaying events.
+- **`CircleCreated` event** on circle creation, so indexers can discover
+  circles from events.
+- **Page-level live writes** in the demo (contribute / close / pay arrears
+  through Sapient), once verified end-to-end with a Sapient test wallet.
 
 ## License
 

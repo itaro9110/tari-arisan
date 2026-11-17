@@ -1,7 +1,7 @@
 # Tari Arisan — Live Deployment Proof (Esmeralda testnet)
 
 **Status: LIVE and VERIFIED on Esmeralda testnet, 2026-11-15.**
-Template published, one ArisanCircle created, round 0 fully executed on-chain
+Template published, one TariArisan circle created, round 0 fully executed on-chain
 (2 members contributed, round closed, pot paid out, arrears recorded).
 
 > Testnet only. No mainnet deployment, no real TARI, no real funds.
@@ -13,13 +13,13 @@ Template published, one ArisanCircle created, round 0 fully executed on-chain
 |---|---|
 | Template | `template_f230b6fbe6409c10c8f3d9dbf47a722a0b7ab956d32ed5b57a1fd35e9e8399a5` |
 | Template name | `TariArisan` |
-| ArisanCircle component | `component_fe42c4e6f21f2066cac7acdabb5fabcd9bd365af8aadd154ece22dd0d2f601e8` |
+| Circle component | `component_fe42c4e6f21f2066cac7acdabb5fabcd9bd365af8aadd154ece22dd0d2f601e8` |
 | Circle vault | `vault_fe930fe9202d86a9dfa09b7766bfdbcd4c5d4f854527235ff0b52565afe9e6bd` |
 | Public indexer | https://esme-indexer-a.ootle.tari.com/ (mirror: https://esme-indexer-b.ootle.tari.com/) |
 
 ## WASM
 
-- Source: `src/lib.rs` (Rust template, `ArisanCircle`)
+- Source: `src/lib.rs` (Rust template, `TariArisan`)
 - Release WASM: `target/wasm32-unknown-unknown/release/tari_arisan.wasm`
 - Size: 156,211 bytes
 - SHA-256: `3c5bc3681b2dce90e6f92a7d295345d1248770e705dcbe19b2640c9ab0c41ec6`
@@ -77,8 +77,19 @@ Template published, one ArisanCircle created, round 0 fully executed on-chain
    (`std.template.publish`, `std.component.created`,
    `TariArisan.ContributionReceived`, `TariArisan.RoundClosed`,
    `TariArisan.ArrearsRecorded`) are all visible there.
+   > **Indexer caveat (checked 2026-11-17):** the public Esmeralda indexer
+   > currently answers `{"error": "Transaction … is not known to this indexer"}`
+   > for these 2026-11-15 transaction ids on both indexer-a and indexer-b,
+   > while the template and component pages resolve fine. The indexer appears
+   > not to retain historical transactions. The transactions themselves are
+   > real: the walletd submission receipts and the resulting on-chain state
+   > corroborate them — the circle component is `verified: true` at version 3
+   > with `value_hash_epoch: 13105` (the close epoch), and Member1's revealed
+   > balance after the close reconciles exactly (84,031,692 µT). If a
+   > transaction link 404s, verify via the component substate (step 2) and
+   > the template page (step 1) instead.
 4. Re-run the flow yourself with the walletd (`tari_ootle_walletd` v0.53.3,
-   `--network esme`): the manifests in `../walletd/manifests/` reproduce every
+   `--network esme`): the manifests in `manifests/` reproduce every
    step — `create_circle_live.tm`, `contribute.tm`, `close_round.tm`,
    `info.tm` — via `transactions.submit_manifest`. The live-write instruction
    encoding used by those manifests is the Tari manifest DSL documented in the

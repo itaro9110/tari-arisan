@@ -161,13 +161,13 @@ test("reset starts a fresh circle", function () {
   eq(App.getSim().arrearsOf("ayu"), 0, "no arrears");
 });
 
-test("live tab shows configured state (Phase 3) and no longer refuses writes", function () {
+test("live tab shows configured state (verified) and liveWrite is honest about page writes", function () {
   click("tab-live");
   eq(elements["panel-live"]._classes.has("hidden"), false, "live panel visible");
   eq(elements["panel-sim"]._classes.has("hidden"), true, "sim panel hidden");
   contains(elements["live-config"].textContent, "template_f230b6fbe6409c10c8f3d9dbf47a722a0b7ab956d32ed5b57a1fd35e9e8399a5", "template shown");
   contains(elements["live-config"].textContent, "TERVERIFIKASI", "live writes verified shown");
-  eq(App.liveWrite("contribute"), null, "liveWrite no longer refuses once verified");
+  contains(App.liveWrite("contribute"), "belum tersedia", "liveWrite says page writes are not available (verified via walletd instead)");
   click("tab-sim");
   eq(elements["panel-sim"]._classes.has("hidden"), false, "back to sim");
 });

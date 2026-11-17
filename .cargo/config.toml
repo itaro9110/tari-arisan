@@ -5,4 +5,7 @@
 target-dir = "target"
 
 [alias]
-build-wasm = "build --target=wasm32-unknown-unknown"
+# NOTE: --release is required — the on-chain binary (PROOF.md) is the
+# release build (156,211 bytes, SHA-256 3c5bc368…). A dev build is ~10 MB
+# and exceeds the 1 MiB on-chain cap.
+build-wasm = "build --release --target=wasm32-unknown-unknown"
